@@ -63,7 +63,7 @@ elif page == "Optimization Analysis":
 
     # Optimization Parameters
     #battery_capacity = 20  # kWh
-    battery_capacity = st.slider("Select battery_capacity:", min_value=0, max_value=50, step=1)
+    battery_capacity = st.slider("Select battery_capacity:", min_value=0, max_value=50,value= 25, step=1)
 
     battery_soc_min = 0.2 * battery_capacity
     battery_soc_max = 0.8 * battery_capacity
@@ -71,7 +71,7 @@ elif page == "Optimization Analysis":
     eta_charge = 0.9
     eta_discharge = 0.9
     #cost_grid = 0.15  # $/kWh
-    cost_grid = st.number_input("Cost of Electricity from grid($/kwh):", min_value=0.0, max_value=10.0, step=0.1, format="%.2f")
+    cost_grid = st.number_input("Cost of Electricity from grid($/kwh):", min_value=0.0,value=1.25, max_value=10.0, step=0.1, format="%.2f")
     cost_battery = 0.05  # $/kWh
     soc_initial = 0.5 * battery_capacity
 
@@ -144,8 +144,9 @@ elif page == "Optimization Analysis":
             st.pyplot(fig)
 
             # Display detailed results
-            if st.checkbox("### Show Hourly Results"):
-                st.markdown("### Optimization Results :")
+            #if st.checkbox("### Show Hourly Results"):
+            st.markdown("### Optimization Results :")
+            with st.expander("Show Hourly Results"):
                 for t in range(24):  # Display first 6 hours for preview
                     st.write(f"**Hour {t}:** PV={optimized_pv[t]:.2f} kW, Battery={optimized_battery[t]:.2f} kW, Grid={optimized_grid[t]:.2f} kW, SOC={optimized_soc[t]:.2f} kWh")
         else:
