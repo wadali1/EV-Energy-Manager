@@ -63,7 +63,7 @@ elif page == "Optimization Analysis":
 
     # Optimization Parameters
     #battery_capacity = 20  # kWh
-    battery_capacity = st.slider("Select battery_capacity:", min_value=0, max_value=50,value= 25, step=1)
+    battery_capacity = st.slider("Select battery_capacity (Kwh):", min_value=0, max_value=50,value= 25, step=1)
 
     battery_soc_min = 0.2 * battery_capacity
     battery_soc_max = 0.8 * battery_capacity
@@ -71,8 +71,13 @@ elif page == "Optimization Analysis":
     eta_charge = 0.9
     eta_discharge = 0.9
     #cost_grid = 0.15  # $/kWh
-    cost_grid = st.number_input("Cost of Electricity from grid($/kwh):", min_value=0.0,value=1.25, max_value=10.0, step=0.1, format="%.2f")
-    cost_battery = 0.05  # $/kWh
+    cost_pv = st.number_input("Cost of Electricity from PV($/kwh):", min_value=0.0,value=0.0, max_value=10.0, step=0.1, format="%.2f")
+    COST_GRID = st.number_input("Cost of Electricity from grid($/kwh):", min_value=0.0,value=1.25, max_value=10.0, step=0.1, format="%.2f")
+    #Incorporated time-of-use (TOU) pricing, where the cost of power from the grid is reduced after 7 PM (hour 19)
+    cost_grid = {t:COST_GRID  if t < 19 else 0.5*COST_GRID for t in hours} 
+
+    #cost_battery = 0.05  # $/kWh
+    cost_battery=st.number_input("Cost of Electricity from battery($/kwh):", min_value=0.0,value=0.05, max_value=10.0, step=0.1, format="%.2f")
     soc_initial = 0.5 * battery_capacity
 
     if st.button('Run Optimisation!!'):
@@ -93,7 +98,7 @@ elif page == "Optimization Analysis":
 
         # Objective function: Minimize total cost
         model.setObjective(
-            gp.quicksum(cost_battery * P_bat_discharge[t] + cost_grid * P_grid[t] for t in hours),
+            gp.quicksum(P_pv[t]*cost_pv+cost_battery * P_bat_discharge[t] + cost_grid[t] * P_grid[t] for t in hours),
             GRB.MINIMIZE
         )
 
@@ -146,8 +151,22 @@ elif page == "Optimization Analysis":
             # Display detailed results
             #if st.checkbox("### Show Hourly Results"):
             st.markdown("### Optimization Results :")
+            hourly_costs = {}
+            total_cost = 0
             with st.expander("Show Hourly Results"):
-                for t in range(24):  # Display first 6 hours for preview
-                    st.write(f"**Hour {t}:** PV={optimized_pv[t]:.2f} kW, Battery={optimized_battery[t]:.2f} kW, Grid={optimized_grid[t]:.2f} kW, SOC={optimized_soc[t]:.2f} kWh")
+                for t in range(24): 
+                     pv = P_pv[t].X
+                     battery = P_bat[t].X
+                     grid = P_grid[t].X
+                     soc = SOC[t].X
+                     hour_cost = cost_battery * P_bat[t].X + cost_grid[t] * grid  # Compute hourly cost
+                     hourly_costs[t] = hour_cost
+                     total_cost += hour_cost
+                     st.write(f"**Hour {t}:** PV={optimized_pv[t]:.2f} kW, Battery={optimized_battery[t]:.2f} kW, Grid={optimized_grid[t]:.2f} kW, SOC={optimized_soc[t]:.2f} kWh ,Cost=${hour_cost:.2f}")
+                     #print(f"Hour {t}: PV={pv:.2f} kW, Battery={battery:.2f} kW, Grid={grid:.2f} kW, SOC={soc:.2f} kWh, Cost=${hour_cost:.2f}")
+            st.markdown(f"Total Cost: ${total_cost:.2f}")
+            st.balloons()
+    
+
         else:
             st.error("Optimization failed. ❌")
