@@ -1,4 +1,5 @@
 numpy
 pandas
 streamlit
-
+gurobipy
+matplotlib
