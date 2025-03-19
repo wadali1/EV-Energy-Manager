@@ -30,6 +30,17 @@ st.sidebar.header("⚙️ Configuration")
 num_level2_chargers = st.sidebar.slider("Level 2 Chargers", 1, 10, 5)
 num_level3_chargers = st.sidebar.slider("Level 3 Chargers", 1, 5, 3)
 
+st.sidebar.header("💰 Cost Estimation")
+cost_per_kWh = st.sidebar.number_input("Cost per kWh ($)", min_value=0.01, max_value=1.0, value=0.15, step=0.01)
+
+# Estimated Charging Cost Calculation
+# Assuming: 
+# - Each Level 2 charger uses 30 kWh per session
+# - Each Level 3 charger uses 80 kWh per session
+total_cost = (num_level2_chargers * 30 + num_level3_chargers * 80) * cost_per_kWh
+
+st.sidebar.metric("💲 Estimated Charging Cost", f"${total_cost:.2f}")
+
 # Energy Data
 hours = list(range(24))
 load_demand = [5, 4, 3, 3, 4, 6, 8, 10, 12, 14, 13, 12, 11, 10, 8, 7, 9, 10, 11, 12, 11, 8, 6, 5]  # kW
