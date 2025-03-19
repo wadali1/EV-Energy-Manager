@@ -3,3 +3,5 @@ pandas
 streamlit
 gurobipy
 matplotlib
+plotly
+seaborn
