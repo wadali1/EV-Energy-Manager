@@ -31,15 +31,36 @@ num_level2_chargers = st.sidebar.slider("Level 2 Chargers", 1, 10, 5)
 num_level3_chargers = st.sidebar.slider("Level 3 Chargers", 1, 5, 3)
 
 st.sidebar.header("💰 Cost Estimation")
-cost_per_kWh = st.sidebar.number_input("Cost per kWh ($)", min_value=0.01, max_value=1.0, value=0.15, step=0.01)
 
-# Estimated Charging Cost Calculation
-# Assuming: 
-# - Each Level 2 charger uses 30 kWh per session
-# - Each Level 3 charger uses 80 kWh per session
-total_cost = (num_level2_chargers * 30 + num_level3_chargers * 80) * cost_per_kWh
+# User inputs for power rating
+power_level2 = st.sidebar.slider("Power Rating (kW) - Level 2 Charger", 3, 19, 7)  # Level 2 chargers: 3kW to 19kW
+power_level3 = st.sidebar.slider("Power Rating (kW) - Level 3 Charger", 50, 350, 150)  # Level 3 chargers: 50kW to 350kW
 
-st.sidebar.metric("💲 Estimated Charging Cost", f"${total_cost:.2f}")
+# Charging time per day
+charging_hours = st.sidebar.slider("Charging Time per Day (hours)", 1, 24, 5)
+
+# Cost per kWh
+cost_per_kWh = st.sidebar.number_input("Electricity Cost per kWh ($)", min_value=0.01, max_value=1.0, value=0.15, step=0.01)
+
+# Calculate energy consumption (kWh) per day
+energy_level2 = num_level2_chargers * power_level2 * charging_hours
+energy_level3 = num_level3_chargers * power_level3 * charging_hours
+
+# Total energy consumption
+total_energy = energy_level2 + energy_level3
+
+# Cost calculations
+daily_cost = total_energy * cost_per_kWh
+monthly_cost = daily_cost * 30  # Assuming 30 days per month
+
+# Display results in a structured way
+st.sidebar.markdown("### 🔢 Cost Breakdown")
+
+col1, col2 = st.sidebar.columns(2)
+col1.metric("⚡ Total Energy (kWh/day)", f"{total_energy:.2f} kWh")
+col2.metric("💲 Daily Cost", f"${daily_cost:.2f}")
+
+st.sidebar.metric("📅 Monthly Cost", f"${monthly_cost:.2f}", delta=f"{daily_cost:.2f}/day", delta_color="inverse")
 
 # Energy Data
 hours = list(range(24))
