@@ -5,7 +5,7 @@ from gurobipy import GRB
 import time
 import plotly.graph_objects as go
 import seaborn as sns
-import numpy as
+import numpy as np
 
 # Set up Streamlit page
 st.set_page_config(page_title="EV Energy Manager", layout="wide")
