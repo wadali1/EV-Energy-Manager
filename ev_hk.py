@@ -2,6 +2,10 @@ import streamlit as st
 import matplotlib.pyplot as plt
 import gurobipy as gp
 from gurobipy import GRB
+import time
+import plotly.graph_objects as go
+import seaborn as sns
+import numpy as
 
 # Set up Streamlit page
 st.set_page_config(page_title="EV Energy Manager", layout="wide")
@@ -82,91 +86,113 @@ elif page == "Optimization Analysis":
 
     if st.button('Run Optimisation!!'):
         # Create model
-        model = gp.Model("Smart_Microgrid_Optimization")
+        with st.spinner("⚡ Running optimization, please wait..."):
+            time.sleep(5)
+            model = gp.Model("Smart_Microgrid_Optimization")
 
-        # Decision variables
-        P_pv = model.addVars(hours, lb=0, ub={t: pv_generation[t] for t in hours}, name="P_pv")
-        P_bat = model.addVars(hours, lb=-battery_power_max, ub=battery_power_max, name="P_bat")
-        P_grid = model.addVars(hours, lb=0, name="P_grid")
-        SOC = model.addVars(hours, lb=battery_soc_min, ub=battery_soc_max, name="SOC")
-        P_bat_charge = model.addVars(hours, lb=0, ub=battery_power_max, name="P_bat_charge")
-        P_bat_discharge = model.addVars(hours, lb=0, ub=battery_power_max, name="P_bat_discharge")
+            # Decision variables
+            P_pv = model.addVars(hours, lb=0, ub={t: pv_generation[t] for t in hours}, name="P_pv")
+            P_bat = model.addVars(hours, lb=-battery_power_max, ub=battery_power_max, name="P_bat")
+            P_grid = model.addVars(hours, lb=0, name="P_grid")
+            SOC = model.addVars(hours, lb=battery_soc_min, ub=battery_soc_max, name="SOC")
+            P_bat_charge = model.addVars(hours, lb=0, ub=battery_power_max, name="P_bat_charge")
+            P_bat_discharge = model.addVars(hours, lb=0, ub=battery_power_max, name="P_bat_discharge")
 
-        # Linking charge and discharge components to P_bat
-        for t in hours:
-            model.addConstr(P_bat[t] == P_bat_discharge[t] - P_bat_charge[t], f"Bat_Charge_Discharge_{t}")
+            # Linking charge and discharge components to P_bat
+            for t in hours:
+                model.addConstr(P_bat[t] == P_bat_discharge[t] - P_bat_charge[t], f"Bat_Charge_Discharge_{t}")
 
-        # Objective function: Minimize total cost
-        model.setObjective(
-            gp.quicksum(P_pv[t]*cost_pv+cost_battery * P_bat_discharge[t] + cost_grid[t] * P_grid[t] for t in hours),
-            GRB.MINIMIZE
-        )
-
-        # Constraints
-        # Load balancing constraint
-        for t in hours:
-            model.addConstr(P_pv[t] + P_bat[t] + P_grid[t] == load_demand[t], f"Load_Balance_{t}")
-
-        # Battery SOC constraints
-        model.addConstr(SOC[0] == soc_initial, "Initial_SOC")
-        for t in hours[1:]:
-            model.addConstr(
-                SOC[t] == SOC[t-1] + eta_charge * P_bat_charge[t-1] - P_bat_discharge[t-1] / eta_discharge,
-                f"SOC_Update_{t}"
+            # Objective function: Minimize total cost
+            model.setObjective(
+                gp.quicksum(P_pv[t]*cost_pv+cost_battery * P_bat_discharge[t] + cost_grid[t] * P_grid[t] for t in hours),
+                GRB.MINIMIZE
             )
 
-        # PV generation constraint
-        for t in hours:
-            model.addConstr(P_pv[t] <= pv_generation[t], f"PV_Limit_{t}")
+            # Constraints
+            # Load balancing constraint
+            for t in hours:
+                model.addConstr(P_pv[t] + P_bat[t] + P_grid[t] == load_demand[t], f"Load_Balance_{t}")
 
-        # Optimize the model
-        model.optimize()
+            # Battery SOC constraints
+            model.addConstr(SOC[0] == soc_initial, "Initial_SOC")
+            for t in hours[1:]:
+                model.addConstr(
+                    SOC[t] == SOC[t-1] + eta_charge * P_bat_charge[t-1] - P_bat_discharge[t-1] / eta_discharge,
+                    f"SOC_Update_{t}"
+                )
 
-        # Check if the model found an optimal solution
-        if model.status == GRB.OPTIMAL:
-            st.success("Optimization successful! ✅")
-            
-            # Extracting results
-            optimized_pv = [P_pv[t].X for t in hours]
-            optimized_battery = [P_bat[t].X for t in hours]
-            optimized_grid = [P_grid[t].X for t in hours]
-            optimized_soc = [SOC[t].X for t in hours]
+            # PV generation constraint
+            for t in hours:
+                model.addConstr(P_pv[t] <= pv_generation[t], f"PV_Limit_{t}")
 
-            # Plot the results
-            fig, ax = plt.subplots(figsize=(10, 6))
-            ax.plot(hours, optimized_pv, label="Optimized PV (kW)", marker="o", linestyle="-", color="green")
-            ax.plot(hours, optimized_battery, label="Optimized Battery (kW)", marker="s", linestyle="--", color="red")
-            ax.plot(hours, optimized_grid, label="Grid Power (kW)", marker="^", linestyle=":", color="black")
-            ax.plot(hours, optimized_soc, label="SOC (kWh)", marker="d", linestyle="dashdot", color="purple")
+            # Optimize the model
+            model.optimize()
 
-            ax.set_xlabel("Hour of the Day")
-            ax.set_ylabel("Power (kW) / SOC (kWh)")
-            ax.set_title("Optimized Energy Distribution")
-            ax.legend()
-            ax.grid(True)
+            # Check if the model found an optimal solution
+            if model.status == GRB.OPTIMAL:
+                st.success("Optimization successful! ✅")
+                
+                # Extracting results
+                optimized_pv = [P_pv[t].X for t in hours]
+                optimized_battery = [P_bat[t].X for t in hours]
+                optimized_grid = [P_grid[t].X for t in hours]
+                optimized_soc = [SOC[t].X for t in hours]
 
-            # Show the plot
-            st.pyplot(fig)
+                # Plot the results
+                fig, ax = plt.subplots(figsize=(10, 6))
+                ax.plot(hours, optimized_pv, label="Optimized PV (kW)", marker="o", linestyle="-", color="green")
+                ax.plot(hours, optimized_battery, label="Optimized Battery (kW)", marker="s", linestyle="--", color="red")
+                ax.plot(hours, optimized_grid, label="Grid Power (kW)", marker="^", linestyle=":", color="black")
+                ax.plot(hours, optimized_soc, label="SOC (kWh)", marker="d", linestyle="dashdot", color="purple")
 
-            # Display detailed results
-            #if st.checkbox("### Show Hourly Results"):
-            st.markdown("### Optimization Results :")
-            hourly_costs = {}
-            total_cost = 0
-            with st.expander("Show Hourly Results"):
-                for t in range(24): 
-                     pv = P_pv[t].X
-                     battery = P_bat[t].X
-                     grid = P_grid[t].X
-                     soc = SOC[t].X
-                     hour_cost = cost_battery * P_bat[t].X + cost_grid[t] * grid  # Compute hourly cost
-                     hourly_costs[t] = hour_cost
-                     total_cost += hour_cost
-                     st.write(f"**Hour {t}:** PV={optimized_pv[t]:.2f} kW, Battery={optimized_battery[t]:.2f} kW, Grid={optimized_grid[t]:.2f} kW, SOC={optimized_soc[t]:.2f} kWh ,Cost=${hour_cost:.2f}")
-                     #print(f"Hour {t}: PV={pv:.2f} kW, Battery={battery:.2f} kW, Grid={grid:.2f} kW, SOC={soc:.2f} kWh, Cost=${hour_cost:.2f}")
-            st.markdown(f"Total Cost: ${total_cost:.2f}")
-            st.balloons()
-    
+                ax.set_xlabel("Hour of the Day")
+                ax.set_ylabel("Power (kW) / SOC (kWh)")
+                ax.set_title("Optimized Energy Distribution")
+                ax.legend()
+                ax.grid(True)
 
-        else:
-            st.error("Optimization failed. ❌")
+                # Show the plot
+                st.pyplot(fig)
+
+                # Create an interactive plot using Plotly
+                fig = go.Figure()
+
+                fig.add_trace(go.Scatter(x=hours, y=optimized_pv, mode='lines+markers', name='Optimized PV (kW)', line=dict(color='green')))
+                fig.add_trace(go.Scatter(x=hours, y=optimized_battery, mode='lines+markers', name='Optimized Battery (kW)', line=dict(color='red', dash='dash')))
+                fig.add_trace(go.Scatter(x=hours, y=optimized_grid, mode='lines+markers', name='Grid Power (kW)', line=dict(color='black', dash='dot')))
+                fig.add_trace(go.Scatter(x=hours, y=optimized_soc, mode='lines+markers', name='SOC (kWh)', line=dict(color='purple', dash='longdash')))
+
+                # Add layout details
+                fig.update_layout(
+                    title="Optimized Energy Distribution",
+                    xaxis_title="Hour of the Day",
+                    yaxis_title="Power (kW) / SOC (kWh)",
+                    legend_title="Legend",
+                    template="plotly_dark"
+                )
+
+                # Display the interactive Plotly chart
+                st.plotly_chart(fig, use_container_width=True)
+
+                # Display detailed results
+                #if st.checkbox("### Show Hourly Results"):
+                st.markdown("### Optimization Results :")
+                hourly_costs = {}
+                total_cost = 0
+                with st.expander("Show Hourly Results"):
+                    for t in range(24): 
+                        pv = P_pv[t].X
+                        battery = P_bat[t].X
+                        grid = P_grid[t].X
+                        soc = SOC[t].X
+                        hour_cost = cost_battery * P_bat[t].X + cost_grid[t] * grid  # Compute hourly cost
+                        hourly_costs[t] = hour_cost
+                        total_cost += hour_cost
+                        st.write(f"**Hour {t}:** PV={optimized_pv[t]:.2f} kW, Battery={optimized_battery[t]:.2f} kW, Grid={optimized_grid[t]:.2f} kW, SOC={optimized_soc[t]:.2f} kWh ,Cost=${hour_cost:.2f}")
+                        #print(f"Hour {t}: PV={pv:.2f} kW, Battery={battery:.2f} kW, Grid={grid:.2f} kW, SOC={soc:.2f} kWh, Cost=${hour_cost:.2f}")
+                st.markdown(f"Total Cost: ${total_cost:.2f}")
+                st.balloons()
+        
+
+            else:
+                st.error("Optimization failed. ❌")
